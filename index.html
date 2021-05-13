@@ -1,0 +1,177 @@
+<!DOCTYPE HTML>
+    <head>
+        <meta charset="UTF-8">
+        <title>Blackjack Testing Site</title>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.1/underscore-min.js"></script>
+    </head>
+    <body>
+        <div>
+            <label id="num_of_deck_lbl">Number of decks: </label>
+            <select id="num_of_deck_selector">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+            </select>
+        </div>
+        <br>
+        <div>
+            <label id="num_of_loop_lbl">Number of loops: </label>
+            <input type="text" id="num_of_loop_tf" value="1000000">
+        </div>
+        <br>
+        <div>
+            <button id="submit_btn">Submit</button>
+        </div>
+        <br>
+        <div>
+            <p id="result"></p>
+        </div>
+    </body>
+    <script>
+        $(document).ready(function(){
+            var cards = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+
+            function initShoe(numOfDeck) {
+                var shoe = [];        
+                
+                for(let card of cards) {
+                    for(let i = 0; i < 4; i++) {
+                        for(let j = 0; j < numOfDeck; j++) {
+                            shoe.push(card);
+                        }
+                    }
+                }
+                shoe = _.shuffle(shoe);
+
+                var pivotCutCard = Math.round(shoe.length * 4 / 5);
+                var indexCutCard = pivotCutCard - 10 + Math.floor(Math.random() * 20 + 1);
+
+                return [shoe, indexCutCard];
+            }
+
+            function getPoint(card) {
+                if(card == 1) return 11;
+                if(card >= 10) return 10;
+                return parseInt(card);
+            }
+
+            function isAce(card) {
+                return card == 1;
+            }
+
+            function calculatePoint(hand) {
+                let numAce = 0;
+                let total = 0;
+
+                for(let card of hand) {
+                    total += getPoint(card);
+                    if(isAce(card)) numAce++;
+                }
+
+                while(total > 21 && numAce > 0) {
+                    total -= 10;
+                    numAce -= 1;
+                }
+
+                return total;
+            }
+
+            var btn = document.getElementById("submit_btn");
+
+            btn.addEventListener("click", () => {    
+                var numOfDeckSelector = $("#num_of_deck_selector");
+                var numOfDeck = numOfDeckSelector.val();
+                var numCard = 52 * numOfDeck;
+                var numOfLoop = $("#num_of_loop_tf").val();
+                
+                var initResult = initShoe(numOfDeck);
+                var shoe = initResult[0];
+                var indexCutCard = initResult[1];
+
+                // console.log(shoe.length, indexCutCard);
+
+                var mapResult = {};
+                let i = 0;
+
+                while(i++ < numOfLoop) {
+                    if(shoe.length <= numCard - indexCutCard) {
+                        initResult = initShoe(numOfDeck);
+                        shoe = initResult[0];
+                        indexCutCard = initResult[1];
+                    }
+
+                    let result = 0;      // 0 is draw, 1 is player win, -1 is dealer win
+                    let dealerHand = [];
+                    let playerHand = [];
+                    let playerPoint = 0;
+                    let dealerPoint = 0;
+
+                    dealerHand.push(shoe.pop());
+                    playerHand.push(shoe.pop());
+                    dealerHand.push(shoe.pop());
+                    playerHand.push(shoe.pop());
+
+                    while(calculatePoint(playerHand) <= 17) {
+                        playerHand.push(shoe.pop());
+                    }
+                    playerPoint = calculatePoint(playerHand);
+
+                    if(playerPoint > 21) {
+                        result = -1;
+                    } else {
+                        while(calculatePoint(dealerHand) <= 17) {
+                            dealerHand.push(shoe.pop())
+                        }
+                        dealerPoint = calculatePoint(dealerHand);
+
+                        if(dealerPoint > 21)
+                            result = 1
+                        else {
+                            if(playerPoint == dealerPoint) result = 0;
+                            else if(playerPoint > dealerPoint) result = 1;
+                            else if(dealerPoint > playerPoint) result = -1;
+                        }
+                    }
+
+                    let numCardInHand = playerHand.length;
+
+                    // console.log(numCardInHand, playerHand, playerPoint, dealerHand, dealerPoint, result);
+                    if(_.isUndefined(mapResult[numCardInHand])) {
+                        mapResult[numCardInHand] = {
+                            "num_play": 0,
+                            "num_win": 0,
+                            "percent_win_when_play": 0,
+                            "percent_win_in_total": 0
+                        }
+                    }
+
+                    mapResult[numCardInHand]["num_play"] += 1;
+                    
+                    if(result == 1) {
+                        mapResult[numCardInHand]["num_win"] += 1;
+                    }
+                }
+
+                for(let key in mapResult) {
+                    mapResult[key]["percent_win_when_play"] = (mapResult[key]["num_win"] * 100.0 / mapResult[key]["num_play"]).toFixed(5);
+                    mapResult[key]["percent_win_in_total"]  = (mapResult[key]["num_win"] * 100.0 / numOfLoop).toFixed(5);
+                }
+
+                var resultField = document.getElementById("result");
+                var logResult = "";
+                for(let key in mapResult) {
+                    logResult += "Num card in hand: " + key + ", " + JSON.stringify(mapResult[key]);
+                    logResult += "<br>";
+                }
+
+                resultField.innerHTML = logResult;
+            });
+        });
+    </script>
+</HTML>
